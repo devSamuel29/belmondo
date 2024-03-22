@@ -1,91 +1,90 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define MAX_PROCESSOS 30
+
 typedef enum {
     PRONTO,
     EXECUTANDO,
-    ESPERANDO
-} EstadoProcesso;
+    CONCLUIDO,
+    BLOQUEADO
+} Estado;
 
 typedef struct {
     int id;
-    int tempoChegada;
-    int tempoExecucao;
-    int tempoRestante;
-    EstadoProcesso estado;
+    int tempo_execucao;
+    int tempo_restante;
+    Estado estado;
 } Processo;
 
-void adicionarProcesso(Processo *fila, int *tamanhoFila, Processo novoProcesso) {
-    fila[*tamanhoFila] = novoProcesso;
-    (*tamanhoFila)++;
+void imprimir_estado(Processo *processos, int num_processos, int indice_processo_atual) {
+    printf("Estado dos processos: ");
+    for (int i = 0; i < num_processos; i++) {
+        if (i == indice_processo_atual && processos[i].estado == EXECUTANDO) {
+            printf("P%d:Em execução ", processos[i].id);
+        } else if (processos[i].estado == PRONTO) {
+            printf("P%d:Pronto ", processos[i].id);
+        } else if (processos[i].estado == CONCLUIDO) {
+            printf("P%d:Concluído ", processos[i].id);
+        } else if (processos[i].estado == BLOQUEADO) {
+            printf("P%d:Bloqueado ", processos[i].id);
+        }
+    }
+    printf("\n");
 }
 
-void roundRobin(Processo *processos, int numProcessos, int quantum) {
-    int tempoTotal = 0;
-    int i, j;
-    int tamanhoFila = 0;
-    Processo fila[numProcessos];
+void fila_round_robin(Processo *processos, int num_processos, int quantum) {
+    int i, todos_processos_concluidos = 0;
+    int tempo_total = 0;
+    int indice_processo_atual = 0;
 
-    for (i = 0; i < numProcessos; i++) {
-        processos[i].tempoRestante = processos[i].tempoExecucao;
-        processos[i].estado = PRONTO;
-    }
+    while (!todos_processos_concluidos) {
+        todos_processos_concluidos = 1;
 
-    i = 0;
-    while (1) {
-        int executou = 0;
-        for (j = 0; j < numProcessos; j++) {
-            if (processos[j].tempoChegada <= tempoTotal && processos[j].tempoRestante > 0) {
-                processos[j].estado = EXECUTANDO;
-                printf("Executando processo %d por 1 unidade de tempo\n", processos[j].id);
-                processos[j].tempoRestante--;
-                tempoTotal++;
+        for (i = 0; i < num_processos; i++) {
+            if (processos[i].estado == PRONTO) {
+                todos_processos_concluidos = 0;
 
-                if (processos[j].tempoRestante == 0) {
-                    printf("Processo %d concluÃ­do\n", processos[j].id);
-                    processos[j].estado = PRONTO;
-                } else {
-                    processos[j].estado = ESPERANDO;
-                    adicionarProcesso(fila, &tamanhoFila, processos[j]);
+                int tempo_executado = quantum;
+                if (processos[i].tempo_restante < quantum) {
+                    tempo_executado = processos[i].tempo_restante;
                 }
 
-                executou = 1;
+                processos[i].tempo_restante -= tempo_executado;
+                tempo_total += tempo_executado;
+
+                imprimir_estado(processos, num_processos, i);
+
+                printf("Executando processo %d por %d unidades de tempo. ", processos[i].id, tempo_executado);
+                if (processos[i].tempo_restante <= 0) {
+                    processos[i].estado = CONCLUIDO;
+                    printf("Processo %d concluído.\n", processos[i].id);
+                } else {
+                    processos[i].estado = BLOQUEADO;
+                    printf("Processo %d bloqueado por 1 unidade de tempo.\n", processos[i].id);
+                    i--;
+                }
+
                 break;
             }
         }
-
-        if (!executou) {
-            tempoTotal++;
-        }
-
-        if (executou && quantum > 0) {
-            if (fila[i].estado == ESPERANDO) {
-                fila[i].estado = PRONTO;
-            }
-            adicionarProcesso(fila, &tamanhoFila, fila[i]);
-        }
-
-        if (i >= numProcessos && tamanhoFila == 0) {
-            break;
-        }
-
-        if (executou && quantum > 0) {
-            i = (i + 1) % numProcessos;
-        }
     }
+
+    printf("\nTempo total de execução: %d unidades de tempo.\n", tempo_total);
 }
 
 int main() {
-    Processo processos[] = {
-        {1, 0, 10, 0, PRONTO},
-        {2, 0, 5, 0, PRONTO},
-        {3, 0, 8, 0, PRONTO},
+    int num_processos = 4; 
+    int quantum = 2; 
+
+    Processo processos[MAX_PROCESSOS] = {
+        {1, 5, 5, PRONTO}, 
+        {2, 3, 3, PRONTO},
+        {3, 4, 4, PRONTO},
+        {4, 2, 2, PRONTO}
     };
 
-    int numProcessos = sizeof(processos) / sizeof(processos[0]);
-    int quantum = 2;
-
-    roundRobin(processos, numProcessos, quantum);
+    fila_round_robin(processos, num_processos, quantum);
 
     return 0;
 }
